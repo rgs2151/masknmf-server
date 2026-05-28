@@ -1,111 +1,90 @@
-# masknmf-toolbox
+# masknmf
 
-[**Installation**](https://github.com/apasarkar/masknmf-toolbox#Installation) |
-[**API**](https://github.com/apasarkar/masknmf-toolbox#API) |
-[**Data Formats**](https://github.com/apasarkar/masknmf-toolbox#examples) |
-[**Paper**](https://github.com/apasarkar/masknmf-toolbox#Paper) |
+CPU / headless build of the **maskNMF** pipeline for functional neuroimaging
+data (calcium, voltage, glutamate). Params in &rarr; results out. No GPU, no
+display server, no Jupyter widgets.
 
-PyTorch implementation of the masknmf framework for {calcium, voltage, glutamate} imaging analysis. Supports GPU-accelerated:
-- Motion Correction
-- Compression and Denoising
-- Signal Demixing
-- High-performance visualization
+| | |
+|---|---|
+| **Source** | https://github.com/apasarkar/masknmf-toolbox |
+| **Docs**   | https://apasarkar.github.io/masknmf-toolbox/ |
+| **Paper**  | https://www.biorxiv.org/content/10.1101/2023.09.14.557777v1 |
 
-## Installation
- 
-Tests are run against Python 3.12 and 3.13, on Linux and Windows using `pip` and `miniforge3`.
+## What this build is
 
-### Download the repository
+A stripped, server-friendly fork of `masknmf-toolbox` that keeps the full
+processing API (`TwoPhotonCalciumPipeline`, `WidefieldSinglechannelPipeline`,
+`RigidMotionCorrector`, `PMDArray`, `SignalDemixer`, ...) and drops every
+dependency that needs a GPU or a display:
 
-Until the package is published to PyPI, you have a few options to download the software:
-1. `git clone` (recommended)
-2. Download directly from [GitHub (code -> Download ZIP)](https://github.com/apasarkar/masknmf-toolbox)
-3. Install directly from a branch (see [Skip the cloning step](https://github.com/apasarkar/masknmf-toolbox#skip-the-cloning-step))
+- removed: `fastplotlib`, `pygfx`, `wgpu`, `glfw`, `imgui_bundle`,
+  `ipywidgets`, `simplejpeg`, `jupyterlab`
+- coerced: every `device="cuda"` / `torch.device("cuda")` to CPU at the
+  device-selector boundary (one-shot warning, no crash)
+- guarded: `torch.cuda.empty_cache()` behind `torch.cuda.is_available()`
+- forced: `matplotlib` backend to `Agg` so static plots work headless
+
+## Install
+
+```bash
+# CPU-only PyTorch (smaller, no CUDA runtime)
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# masknmf itself
+pip install git+https://github.com/apasarkar/masknmf-toolbox.git@main
+```
+
+Editable dev install:
 
 ```bash
 git clone https://github.com/apasarkar/masknmf-toolbox.git
 cd masknmf-toolbox
+pip install -e ".[dev]"
+pytest tests
 ```
 
-### pip
+Supported Python: **3.11 – 3.13**.
 
-Virtual environments are outside the scope of this README, but in general we recommend:
-- [UV](https://docs.astral.sh/uv/) (strongly recommended, prepend `uv` to all `pip` commands)
-```bash
-uv pip install .
-```
-- [venv](https://docs.python.org/3/library/venv.html#creating-virtual-environments)
-```bash
-pip install .
-```
+## Quickstart
 
-### miniforge3
+```python
+import masknmf
 
-The only tested and supported flavor of `anaconda` is [miniforge3](https://github.com/conda-forge/miniforge?tab=readme-ov-file#requirements-and-installers):
+pipeline = masknmf.TwoPhotonCalciumPipeline(
+    motion_correct_config=masknmf.PiecewiseRigidMotionCorrectionConfig(),
+    compress_config=masknmf.CompressConfig(),
+    demixing_config=masknmf.MultipassDemixingConfig(),
+)
 
-```bash
-conda create -n masknmf -c conda-forge python=3.12
-pip install .
-```
+data = masknmf.TiffArray("recording.tif")     # or Hdf5Array("...")
+results = pipeline.run(data)
 
-### Skip the cloning step
-
-If your environment is already set up, you can skip the cloning step and install directly from a branch of the repository:
-
-```bash
-# with standard venvs 
-$ pip install git+https://github.com/apasarkar/masknmf-toolbox.git@main
-# or with UV
-$ uv pip install git+https://github.com/apasarkar/masknmf-toolbox.git@main
-
-Installed 1 package in 0.63ms
- - masknmf-toolbox==0.1.0 
- + masknmf-toolbox==0.1.0 
+results.a   # sparse (d1*d2, K) spatial footprints
+results.c   # dense  (T, K)     temporal traces
+results.b   # dense  (d1*d2,)   pixel baselines
 ```
 
-## GPU Dependencies
+See the [quickstart](https://apasarkar.github.io/masknmf-toolbox/quickstart.html)
+in the docs for the step-by-step (motion correction &rarr; PMD &rarr; demix)
+flow.
 
-The default installation of PyTorch will not have cuda enabled.
-To get the cuda-enabled PyTorch installation
+## Data formats
 
-Find which Cuda version you're using (e.g. cuda_12.6)
+Built-in loaders:
 
-```bash
-nvcc --version
-% or
-nvidia-smi
-```
+- multipage TIFF &mdash; `masknmf.TiffArray`
+- HDF5 &mdash; `masknmf.Hdf5Array`
 
-Windows should have `nvcc` available in the command prompt if you have installed the CUDA toolkit.
+To plug in your own format, implement
+[`masknmf.LazyFrameLoader`](https://apasarkar.github.io/masknmf-toolbox/api/generated/masknmf.LazyFrameLoader.html).
 
-If not, you can find it in the CUDA installation directory:
+## Citing
 
-- Windows:`C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin`
-- Linux/Unix: `/usr/local/cuda/bin/nvcc`
+> _maskNMF: A denoise-sparsen-detect approach for extracting neural signals
+> from dense imaging data._ (2023). A. Pasarkar\*, I. Kinsella, P. Zhou, M. Wu,
+> D. Pan, J.L. Fan, Z. Wang, L. Abdeladim, D.S. Peterka, H. Adesnik, N. Ji,
+> L. Paninski.
 
-```bash
-$ nvcc --version
-nvcc: NVIDIA (R) Cuda compiler driver
-Copyright (c) 2005-2024 NVIDIA Corporation
-Built on Thu_Sep_12_02:55:00_Pacific_Daylight_Time_2024
-Cuda compilation tools, release 12.6, V12.6.77
-Build cuda_12.6.r12.6/compiler.34841621_0
-```
+## License
 
-Install the version of PyTorch that matches your cuda and operating system [on the PyTorch Getting Started](https://pytorch.org/get-started/locally/).
-
-## API
-See the notebooks folder for demos on how to use the motion correction, compression, and demixing APIs.
-
-## Data Formats
-Support currently provided for 
-- multipage .tiff files 
-- hdf5 files. 
-
-Support for other formats can be easily added by defining a data loader class that implements LazyDataLoader. 
-
-## Paper
-
-If you use this method, please cite the accompanying [paper](https://www.biorxiv.org/content/10.1101/2023.09.14.557777v1)
-
-> _maskNMF: A denoise-sparsen-detect approach for extracting neural signals from dense imaging data_. (2023). A. Pasarkar\*, I. Kinsella, P. Zhou, M. Wu, D. Pan, J.L. Fan, Z. Wang, L. Abdeladim, D.S. Peterka, H. Adesnik, N. Ji, L. Paninski.
+GPLv3 &mdash; see [LICENSE](./LICENSE).
