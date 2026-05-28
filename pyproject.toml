@@ -5,15 +5,19 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "masknmf"
 version = "0.1.0"
-description = "masknmf pipeline for motion correction, denoising, compression, and demixing of functional neuroimaging data"
+description = "CPU/headless masknmf pipeline for motion correction, denoising, compression, and demixing of functional neuroimaging data"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.11, <3.14"  # ">=3.10"
+requires-python = ">=3.11, <3.14"
 authors = [
     { name = "Amol Pasarkar" },
 ]
-keywords = ["neuroimaging", "motion correction", "demixing", "calcium imaging"]
+keywords = ["neuroimaging", "motion correction", "demixing", "calcium imaging", "headless", "cpu"]
 
+# Headless / CPU-only runtime.  The GPU stack (fastplotlib, imgui_bundle,
+# pygfx, glfw, simplejpeg, jupyterlab) has been intentionally removed.  Torch
+# is installed CPU-only by default - any PyTorch wheel works, but the CPU
+# wheels are smaller and have no CUDA runtime.
 dependencies = [
     "torch>2",
     "numpy",
@@ -25,23 +29,17 @@ dependencies = [
     "tqdm",
     "plotly",
     "matplotlib",
-    "jupyterlab",
     "pytorch-lightning>=2.5.2",
     "tensorboard>=2.20.0",
-    "fastplotlib[imgui,notebook]==0.6.1",
-    "simplejpeg",
-    "glfw"
 ]
 
 [project.optional-dependencies]
 docs = [
-    "sphinx",
-    "sphinx-gallery",
+    "sphinx>=7",
     "pydata-sphinx-theme",
     "sphinx-copybutton",
     "sphinx-design",
-    "pandoc",
-    "imageio[ffmpeg]",
+    "myst-parser",
 ]
 
 dev = [
@@ -52,8 +50,8 @@ dev = [
 ]
 
 
-
 [project.urls]
 Homepage = "https://github.com/apasarkar/masknmf-toolbox"
 Repository = "https://github.com/apasarkar/masknmf-toolbox"
 Issues = "https://github.com/apasarkar/masknmf-toolbox/issues"
+Documentation = "https://apasarkar.github.io/masknmf-toolbox/"

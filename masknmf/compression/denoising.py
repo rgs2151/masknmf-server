@@ -208,7 +208,7 @@ def train_total_variance_denoiser(
     padded_timeseries = torch.nn.functional.pad(time_series, (padding, padding), mode = 'reflect')
     dataset = MultivariateTimeSeriesDataset(padded_timeseries, input_size=input_size, overlap=overlap)
     train_loader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=True
+        dataset, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=False
     )
 
     logger = TensorBoardLogger("lightning_logs", name="total_variance")
@@ -216,9 +216,8 @@ def train_total_variance_denoiser(
         max_epochs=max_epochs,
         log_every_n_steps=1,
         devices=devices,
-        accelerator="gpu" if torch.cuda.is_available() else "cpu",
-        precision="16-mixed",
-        # strategy="ddp_notebook" if devices > 1 else None,
+        accelerator="cpu",
+        precision="32-true",
     )
 
     trainer.fit(model, train_loader)
